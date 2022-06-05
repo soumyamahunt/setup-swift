@@ -1377,6 +1377,32 @@ module.exports = SemVer
 
 /***/ }),
 
+/***/ 82:
+/***/ (function(__unusedmodule, exports) {
+
+"use strict";
+
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+Object.defineProperty(exports, "__esModule", { value: true });
+/**
+ * Sanitizes an input into a string so it can be passed into issueCommand safely
+ * @param input input to sanitize into a string
+ */
+function toCommandValue(input) {
+    if (input === null || input === undefined) {
+        return '';
+    }
+    else if (typeof input === 'string' || input instanceof String) {
+        return input;
+    }
+    return JSON.stringify(input);
+}
+exports.toCommandValue = toCommandValue;
+//# sourceMappingURL=utils.js.map
+
+/***/ }),
+
 /***/ 85:
 /***/ (function(module) {
 
@@ -1412,6 +1438,42 @@ module.exports = function alpineCustomLogic (os, file, cb) {
 /***/ (function(module) {
 
 module.exports = require("os");
+
+/***/ }),
+
+/***/ 102:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+// For internal use, subject to change.
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (Object.hasOwnProperty.call(mod, k)) result[k] = mod[k];
+    result["default"] = mod;
+    return result;
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+// We use any as a valid input type
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const fs = __importStar(__webpack_require__(747));
+const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(82);
+function issueCommand(command, message) {
+    const filePath = process.env[`GITHUB_${command}`];
+    if (!filePath) {
+        throw new Error(`Unable to find environment variable for file command ${command}`);
+    }
+    if (!fs.existsSync(filePath)) {
+        throw new Error(`Missing file at path: ${filePath}`);
+    }
+    fs.appendFileSync(filePath, `${utils_1.toCommandValue(message)}${os.EOL}`, {
+        encoding: 'utf8'
+    });
+}
+exports.issueCommand = issueCommand;
+//# sourceMappingURL=file-command.js.map
 
 /***/ }),
 
@@ -2206,6 +2268,130 @@ module.exports = function ubuntuCustomLogic (os, file, cb) {
 
 /***/ }),
 
+/***/ 158:
+/***/ (function(__unusedmodule, exports, __webpack_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    Object.defineProperty(o, k2, { enumerable: true, get: function() { return m[k]; } });
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.install = void 0;
+const os = __importStar(__webpack_require__(87));
+const fs = __importStar(__webpack_require__(747));
+const core = __importStar(__webpack_require__(470));
+const toolCache = __importStar(__webpack_require__(533));
+const io = __importStar(__webpack_require__(1));
+const path = __importStar(__webpack_require__(622));
+const exec_1 = __webpack_require__(986);
+const swift_versions_1 = __webpack_require__(336);
+function install(version, system) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (os.platform() !== "win32") {
+            core.error("Trying to run windows installer on non-windows os");
+            return;
+        }
+        let swiftPath = toolCache.find(`swift-${system.name}`, version);
+        if (swiftPath === null || swiftPath.trim().length == 0) {
+            core.debug(`No cached installer found`);
+            const swiftPkg = swift_versions_1.swiftPackage(version, system);
+            let { exe, signature } = yield download(swiftPkg);
+            const exePath = yield toolCache.cacheFile(exe, swiftPkg.name, `swift-${system.name}`, version);
+            swiftPath = path.join(exePath, swiftPkg.name);
+            //await verify(signature, pkg);
+        }
+        else {
+            core.debug("Cached installer found");
+        }
+        core.debug("Running installer");
+        yield exec_1.exec(`"${swiftPath}"`, ["-q"]);
+        core.addPath("%SystemDrive%\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin");
+        core.debug("Swift installed");
+    });
+}
+exports.install = install;
+function download({ url, name }) {
+    return __awaiter(this, void 0, void 0, function* () {
+        core.debug("Downloading Swift for windows");
+        let [exe, signature] = yield Promise.all([
+            toolCache.downloadTool(url),
+            toolCache.downloadTool(`${url}.sig`),
+        ]);
+        core.debug("Swift download complete");
+        return { exe, signature, name };
+    });
+}
+function getVsWherePath() {
+    return __awaiter(this, void 0, void 0, function* () {
+        // check to see if we are using a specific path for vswhere
+        let vswhereToolExe = "";
+        const VSWHERE_PATH = process.env.VSWHERE_PATH;
+        if (VSWHERE_PATH) {
+            // specified a path for vswhere, use it
+            core.debug(`Using given vswhere-path: ${VSWHERE_PATH}`);
+            vswhereToolExe = path.join(VSWHERE_PATH, "vswhere.exe");
+        }
+        else {
+            // check in PATH to see if it is there
+            try {
+                const vsWhereInPath = yield io.which("vswhere", true);
+                core.debug(`Found tool in PATH: ${vsWhereInPath}`);
+                vswhereToolExe = vsWhereInPath;
+            }
+            catch (_a) {
+                // fall back to VS-installed path
+                vswhereToolExe = path.join(process.env["ProgramFiles(x86)"], "Microsoft Visual Studio\\Installer\\vswhere.exe");
+                core.debug(`Trying Visual Studio-installed path: ${vswhereToolExe}`);
+            }
+        }
+        if (!fs.existsSync(vswhereToolExe)) {
+            core.setFailed("setup-msbuild requires the path to where vswhere.exe exists");
+            return;
+        }
+        return vswhereToolExe;
+    });
+}
+function vsVersionRange({ version }) {
+    return "[16,17)";
+}
+function setupRequiredTools(pkg) {
+    return __awaiter(this, void 0, void 0, function* () {
+        let vswhereToolExe = yield getVsWherePath();
+        let vsWhereExec = `-products * ` +
+            `-property installationPath ` +
+            `-latest -version "${vsVersionRange(pkg)}"`;
+    });
+}
+
+
+/***/ }),
+
 /***/ 164:
 /***/ (function(module, __unusedexports, __webpack_require__) {
 
@@ -2490,13 +2676,14 @@ const system = __importStar(__webpack_require__(316));
 const versions = __importStar(__webpack_require__(336));
 const macos = __importStar(__webpack_require__(334));
 const linux = __importStar(__webpack_require__(349));
+const windows = __importStar(__webpack_require__(158));
 const get_version_1 = __webpack_require__(778);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const requestedVersion = core.getInput("swift-version", { required: true });
-            let version = versions.verify(requestedVersion);
             let platform = yield system.getSystem();
+            let version = versions.verify(requestedVersion, platform);
             switch (platform.os) {
                 case system.OS.MacOS:
                     yield macos.install(version, platform);
@@ -2504,6 +2691,8 @@ function run() {
                 case system.OS.Ubuntu:
                     yield linux.install(version, platform);
                     break;
+                case system.OS.Windows:
+                    yield windows.install(version, platform);
             }
             const current = yield get_version_1.getVersion();
             if (current === version) {
@@ -7510,10 +7699,12 @@ var OS;
 (function (OS) {
     OS[OS["MacOS"] = 0] = "MacOS";
     OS[OS["Ubuntu"] = 1] = "Ubuntu";
+    OS[OS["Windows"] = 2] = "Windows";
 })(OS = exports.OS || (exports.OS = {}));
 const AVAILABLE_OS = {
     macOS: ["latest"],
     Ubuntu: ["18.04", "16.04"],
+    Windows: ["latest"],
 };
 function getSystem() {
     return __awaiter(this, void 0, void 0, function* () {
@@ -7536,6 +7727,9 @@ function getSystem() {
                     version: detectedSystem.release,
                     name: "Ubuntu",
                 };
+                break;
+            case "win32":
+                system = { os: OS.Windows, version: "latest", name: "Windows" };
                 break;
             default:
                 throw new Error(`"${detectedSystem.os}" is not a supported platform`);
@@ -7702,40 +7896,48 @@ exports.verify = exports.swiftPackage = void 0;
 const semver = __importStar(__webpack_require__(876));
 const core = __importStar(__webpack_require__(470));
 const os_1 = __webpack_require__(316);
-const AVAILABLE_VERSIONS = [
-    "5.3",
-    "5.2.4",
-    "5.2.2",
-    "5.2.1",
-    "5.2",
-    "5.1.1",
-    "5.1",
-    "5.0.3",
-    "5.0.2",
-    "5.0.1",
-    "5.0",
-    "4.2.4",
-    "4.2.3",
-    "4.2.2",
-    "4.2.1",
-    "4.2",
-    "4.1.3",
-    "4.1.2",
-    "4.1.1",
-    "4.1",
-    "4.0.3",
-    "4.0.2",
-    "4.0",
-    "3.1.1",
-    "3.1",
-    "3.0.2",
-    "3.0.1",
-    "3.0",
-    "2.2.1",
-    "2.2",
-]
-    .map((version) => semver.coerce(version))
-    .filter(notEmpty);
+const VERSIONS_LIST = [
+    ["5.3", [os_1.OS.MacOS, os_1.OS.Ubuntu, os_1.OS.Windows]],
+    ["5.2.5", [os_1.OS.Ubuntu]],
+    ["5.2.4", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["5.2.3", [os_1.OS.Ubuntu]],
+    ["5.2.2", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["5.2.1", [os_1.OS.Ubuntu]],
+    ["5.2", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["5.1.5", [os_1.OS.Ubuntu]],
+    ["5.1.4", [os_1.OS.Ubuntu]],
+    ["5.1.3", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["5.1.2", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["5.1.1", [os_1.OS.Ubuntu]],
+    ["5.1", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["5.0.3", [os_1.OS.Ubuntu]],
+    ["5.0.2", [os_1.OS.Ubuntu]],
+    ["5.0.1", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["5.0", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["4.2.4", [os_1.OS.Ubuntu]],
+    ["4.2.3", [os_1.OS.Ubuntu]],
+    ["4.2.2", [os_1.OS.Ubuntu]],
+    ["4.2.1", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["4.2", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["4.1.3", [os_1.OS.Ubuntu]],
+    ["4.1.2", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["4.1.1", [os_1.OS.Ubuntu]],
+    ["4.1", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["4.0.3", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["4.0.2", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["4.0", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["3.1.1", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["3.1", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["3.0.2", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["3.0.1", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["3.0", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["2.2.1", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+    ["2.2", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
+];
+const AVAILABLE_VERSIONS = VERSIONS_LIST.map(([version, os]) => {
+    const semverVersion = semver.coerce(version);
+    return [semverVersion, os];
+});
 function notEmpty(value) {
     return value !== null && value !== undefined;
 }
@@ -7754,22 +7956,29 @@ function swiftPackage(version, system) {
             archiveName = `swift-${version}-RELEASE-ubuntu${system.version}`;
             archiveFile = `${archiveName}.tar.gz`;
             break;
+        case os_1.OS.Windows:
+            platform = "windows10";
+            archiveName = `swift-${version}-RELEASE-windows10.exe`;
+            archiveFile = archiveName;
+            break;
         default:
             throw new Error("Cannot create download URL for an unsupported platform");
     }
     return {
         url: `https://swift.org/builds/swift-${version}-release/${platform}/swift-${version}-RELEASE/${archiveFile}`,
         name: archiveName,
+        version: version,
     };
 }
 exports.swiftPackage = swiftPackage;
-function verify(version) {
+function verify(version, system) {
     let range = semver.validRange(version);
     if (range === null) {
         throw new Error("Version must be a valid semver format.");
     }
     core.debug(`Resolved range ${range}`);
-    let matchingVersion = evaluateVersions(AVAILABLE_VERSIONS, version);
+    let systemVersions = AVAILABLE_VERSIONS.filter(([_, os]) => os.includes(system.os)).map(([version, _]) => version);
+    let matchingVersion = evaluateVersions(systemVersions, version);
     if (matchingVersion === null) {
         throw new Error(`Version "${version}" is not available`);
     }
@@ -7945,6 +8154,7 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const os = __importStar(__webpack_require__(87));
+const utils_1 = __webpack_require__(82);
 /**
  * Commands
  *
@@ -7998,28 +8208,14 @@ class Command {
         return cmdStr;
     }
 }
-/**
- * Sanitizes an input into a string so it can be passed into issueCommand safely
- * @param input input to sanitize into a string
- */
-function toCommandValue(input) {
-    if (input === null || input === undefined) {
-        return '';
-    }
-    else if (typeof input === 'string' || input instanceof String) {
-        return input;
-    }
-    return JSON.stringify(input);
-}
-exports.toCommandValue = toCommandValue;
 function escapeData(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A');
 }
 function escapeProperty(s) {
-    return toCommandValue(s)
+    return utils_1.toCommandValue(s)
         .replace(/%/g, '%25')
         .replace(/\r/g, '%0D')
         .replace(/\n/g, '%0A')
@@ -8140,6 +8336,8 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const command_1 = __webpack_require__(431);
+const file_command_1 = __webpack_require__(102);
+const utils_1 = __webpack_require__(82);
 const os = __importStar(__webpack_require__(87));
 const path = __importStar(__webpack_require__(622));
 /**
@@ -8166,9 +8364,17 @@ var ExitCode;
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function exportVariable(name, val) {
-    const convertedVal = command_1.toCommandValue(val);
+    const convertedVal = utils_1.toCommandValue(val);
     process.env[name] = convertedVal;
-    command_1.issueCommand('set-env', { name }, convertedVal);
+    const filePath = process.env['GITHUB_ENV'] || '';
+    if (filePath) {
+        const delimiter = '_GitHubActionsFileCommandDelimeter_';
+        const commandValue = `${name}<<${delimiter}${os.EOL}${convertedVal}${os.EOL}${delimiter}`;
+        file_command_1.issueCommand('ENV', commandValue);
+    }
+    else {
+        command_1.issueCommand('set-env', { name }, convertedVal);
+    }
 }
 exports.exportVariable = exportVariable;
 /**
@@ -8184,7 +8390,13 @@ exports.setSecret = setSecret;
  * @param inputPath
  */
 function addPath(inputPath) {
-    command_1.issueCommand('add-path', {}, inputPath);
+    const filePath = process.env['GITHUB_PATH'] || '';
+    if (filePath) {
+        file_command_1.issueCommand('PATH', inputPath);
+    }
+    else {
+        command_1.issueCommand('add-path', {}, inputPath);
+    }
     process.env['PATH'] = `${inputPath}${path.delimiter}${process.env['PATH']}`;
 }
 exports.addPath = addPath;
