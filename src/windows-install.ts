@@ -36,6 +36,9 @@ export async function install(version: string, system: System) {
   core.debug("Running installer");
 
   await exec(`"${swiftPath}"`, ["-q"]);
+  core.addPath(
+    "%SystemDrive%\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin"
+  );
 
   core.debug("Swift installed");
 }
