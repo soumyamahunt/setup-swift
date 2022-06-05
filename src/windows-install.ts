@@ -35,7 +35,7 @@ export async function install(version: string, system: System) {
 
   core.debug("Running installer");
 
-  await exec(`"${swiftPath}"`);
+  await exec(`"${swiftPath}"`, ["-q"]);
 
   core.debug("Swift installed");
 }
