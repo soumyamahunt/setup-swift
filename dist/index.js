@@ -2330,7 +2330,17 @@ function install(version, system) {
             core.debug("Cached installer found");
         }
         core.debug("Running installer");
-        yield exec_1.exec(`"${swiftPath}"`, ["-q"]);
+        const options = {};
+        options.listeners = {
+            stdout: (data) => {
+                core.info(data.toString());
+            },
+            stderr: (data) => {
+                core.error(data.toString());
+            },
+        };
+        let code = yield exec_1.exec(`"${swiftPath}" -q`, []);
+        core.info(`exit code ${code}`);
         core.addPath("%SystemDrive%\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin");
         core.debug("Swift installed");
     });
@@ -2370,22 +2380,48 @@ function getVsWherePath() {
                 core.debug(`Trying Visual Studio-installed path: ${vswhereToolExe}`);
             }
         }
-        if (!fs.existsSync(vswhereToolExe)) {
-            core.setFailed("setup-msbuild requires the path to where vswhere.exe exists");
-            return;
+        let vsinstallerToolExe = path.join(path.dirname(vswhereToolExe), "vs_installer.exe");
+        if (!fs.existsSync(vswhereToolExe) || !fs.existsSync(vsinstallerToolExe)) {
+            core.setFailed("Action requires the path to where vswhere.exe and vs_installer.exe exists");
+            throw new Error();
         }
-        return vswhereToolExe;
+        return { vswhere: vswhereToolExe, vsinstaller: vsinstallerToolExe };
     });
 }
-function vsVersionRange({ version }) {
-    return "[16,17)";
+function vsRequirement({ version }) {
+    return {
+        versionRange: "[16,17)",
+        components: [
+            "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+            "Microsoft.VisualStudio.Component.Windows10SDK.17763",
+        ],
+    };
 }
 function setupRequiredTools(pkg) {
     return __awaiter(this, void 0, void 0, function* () {
-        let vswhereToolExe = yield getVsWherePath();
-        let vsWhereExec = `-products * ` +
+        const { vswhere, vsinstaller } = yield getVsWherePath();
+        const requirement = vsRequirement(pkg);
+        const vsWhereExec = `-products * ` +
             `-property installationPath ` +
-            `-latest -version "${vsVersionRange(pkg)}"`;
+            `-latest -version "${requirement.versionRange}"`;
+        let vsInstallPath = "";
+        const options = {};
+        options.listeners = {
+            stdout: (data) => {
+                const installationPath = data.toString().trim();
+                core.debug(`Found installation path: ${installationPath}`);
+                vsInstallPath = installationPath;
+            },
+        };
+        // execute the find putting the result of the command in the options foundToolPath
+        yield exec_1.exec(`"${vswhere}" ${vsWhereExec}`, [], options);
+        const vsInstallerExec = `modify  --installPath "${vsInstallPath}" ` +
+            requirement.components.reduce((previous, current, currentIndex, array) => {
+                return `${previous} --add "${current}"`;
+            }) +
+            ` --quiet`;
+        // execute the find putting the result of the command in the options foundToolPath
+        yield exec_1.exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
     });
 }
 

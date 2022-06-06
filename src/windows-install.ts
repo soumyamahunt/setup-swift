@@ -4,9 +4,10 @@ import * as core from "@actions/core";
 import * as toolCache from "@actions/tool-cache";
 import * as io from "@actions/io";
 import * as path from "path";
-import { exec } from "@actions/exec";
+import { ExecOptions, exec } from "@actions/exec";
 import { System } from "./os";
 import { swiftPackage, Package } from "./swift-versions";
+import { stderr } from "process";
 
 export async function install(version: string, system: System) {
   if (os.platform() !== "win32") {
@@ -37,7 +38,17 @@ export async function install(version: string, system: System) {
 
   core.debug("Running installer");
 
-  await exec(`"${swiftPath}"`, ["-q"]);
+  const options: ExecOptions = {};
+  options.listeners = {
+    stdout: (data: Buffer) => {
+      core.info(data.toString());
+    },
+    stderr: (data: Buffer) => {
+      core.error(data.toString());
+    },
+  };
+  let code = await exec(`"${swiftPath}" -q`, []);
+  core.info(`exit code ${code}`);
   core.addPath(
     "%SystemDrive%\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin"
   );
@@ -57,7 +68,12 @@ async function download({ url, name }: Package) {
   return { exe, signature, name };
 }
 
-async function getVsWherePath() {
+export interface VisualStudio {
+  vswhere: string;
+  vsinstaller: string;
+}
+
+async function getVsWherePath(): Promise<VisualStudio> | never {
   // check to see if we are using a specific path for vswhere
   let vswhereToolExe = "";
   const VSWHERE_PATH = process.env.VSWHERE_PATH;
@@ -82,25 +98,64 @@ async function getVsWherePath() {
     }
   }
 
-  if (!fs.existsSync(vswhereToolExe)) {
+  let vsinstallerToolExe = path.join(
+    path.dirname(vswhereToolExe),
+    "vs_installer.exe"
+  );
+  if (!fs.existsSync(vswhereToolExe) || !fs.existsSync(vsinstallerToolExe)) {
     core.setFailed(
-      "setup-msbuild requires the path to where vswhere.exe exists"
+      "Action requires the path to where vswhere.exe and vs_installer.exe exists"
     );
 
-    return;
+    throw new Error();
   }
 
-  return vswhereToolExe;
+  return { vswhere: vswhereToolExe, vsinstaller: vsinstallerToolExe };
 }
 
-function vsVersionRange({ version }: Package) {
-  return "[16,17)";
+export interface VsRequirement {
+  versionRange: string;
+  components: string[];
+}
+
+function vsRequirement({ version }: Package): VsRequirement {
+  return {
+    versionRange: "[16,17)",
+    components: [
+      "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+      "Microsoft.VisualStudio.Component.Windows10SDK.17763",
+    ],
+  };
 }
 
 async function setupRequiredTools(pkg: Package) {
-  let vswhereToolExe = await getVsWherePath();
-  let vsWhereExec =
+  const { vswhere, vsinstaller } = await getVsWherePath();
+  const requirement = vsRequirement(pkg);
+  const vsWhereExec =
     `-products * ` +
     `-property installationPath ` +
-    `-latest -version "${vsVersionRange(pkg)}"`;
+    `-latest -version "${requirement.versionRange}"`;
+
+  let vsInstallPath = "";
+  const options: ExecOptions = {};
+  options.listeners = {
+    stdout: (data: Buffer) => {
+      const installationPath = data.toString().trim();
+      core.debug(`Found installation path: ${installationPath}`);
+      vsInstallPath = installationPath;
+    },
+  };
+
+  // execute the find putting the result of the command in the options foundToolPath
+  await exec(`"${vswhere}" ${vsWhereExec}`, [], options);
+
+  const vsInstallerExec =
+    `modify  --installPath "${vsInstallPath}" ` +
+    requirement.components.reduce((previous, current, currentIndex, array) => {
+      return `${previous} --add "${current}"`;
+    }) +
+    ` --quiet`;
+
+  // execute the find putting the result of the command in the options foundToolPath
+  await exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
 }
