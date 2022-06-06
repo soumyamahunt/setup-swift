@@ -2446,7 +2446,7 @@ function setupRequiredTools(pkg) {
             },
         };
         // execute the find putting the result of the command in the options vsInstallPath
-        yield exec_1.exec(`"${vswhere}" ${vsWhereExec}`, [], options);
+        yield exec_1.exec(`"${vswhere}"`, [vsWhereExec], options);
         if (!vsInstallPath) {
             core.setFailed(`Unable to find any visual studio installation for version range: ${requirement.versionRange}.`);
             return;
