@@ -197,7 +197,11 @@ async function setupRequiredTools(pkg: Package) {
   // execute the find putting the result of the command in the options vsInstallPath
   await exec(`"${vswhereExe}" ${vsWhereExec}`, [], options);
   core.info(`got payload: ${payload}`);
-  let vs: VisualStudio = JSON.parse(payload).first;
+
+  let vsInstallations: VisualStudio[] = JSON.parse(payload);
+  core.info(`array: ${JSON.stringify(vsInstallations)}`);
+  let vs = JSON.parse(payload)[0];
+  core.info(`obj: ${JSON.stringify(vs)}`);
   if (!vs.installationPath) {
     core.setFailed(
       `Unable to find any visual studio installation for version: ${requirement.version}.`

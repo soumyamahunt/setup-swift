@@ -2453,7 +2453,10 @@ function setupRequiredTools(pkg) {
         // execute the find putting the result of the command in the options vsInstallPath
         yield exec_1.exec(`"${vswhereExe}" ${vsWhereExec}`, [], options);
         core.info(`got payload: ${payload}`);
-        let vs = JSON.parse(payload).first;
+        let vsInstallations = JSON.parse(payload);
+        core.info(`array: ${JSON.stringify(vsInstallations)}`);
+        let vs = JSON.parse(payload)[0];
+        core.info(`obj: ${JSON.stringify(vs)}`);
         if (!vs.installationPath) {
             core.setFailed(`Unable to find any visual studio installation for version: ${requirement.version}.`);
             return;
