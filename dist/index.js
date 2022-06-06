@@ -2318,10 +2318,10 @@ function install(version, system) {
             core.error("Trying to run windows installer on non-windows os");
             return;
         }
+        const swiftPkg = swift_versions_1.swiftPackage(version, system);
         let swiftPath = toolCache.find(`swift-${system.name}`, version);
         if (swiftPath === null || swiftPath.trim().length == 0) {
             core.debug(`No cached installer found`);
-            const swiftPkg = swift_versions_1.swiftPackage(version, system);
             let { exe, signature } = yield download(swiftPkg);
             const exePath = yield toolCache.cacheFile(exe, swiftPkg.name, `swift-${system.name}`, version);
             swiftPath = path.join(exePath, swiftPkg.name);
@@ -2341,12 +2341,15 @@ function install(version, system) {
             },
         };
         let code = yield exec_1.exec(`"${swiftPath}" -q`, []);
-        let result = fs.existsSync("C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin");
         const systemDrive = (_a = process.env.SystemDrive) !== null && _a !== void 0 ? _a : "C:";
-        core.info(`exit code ${code} and result ${result} and sysdrive: ${systemDrive}`);
         const swiftInstallPath = path.join(systemDrive, "Library", "Developer", "Toolchains", "unknown-Asserts-development.xctoolchain", "usr\\bin");
+        if (code != 0 || !fs.existsSync(swiftInstallPath)) {
+            core.setFailed(`Swift installer failed with exit code: ${code}`);
+            return;
+        }
         core.addPath(swiftInstallPath);
         core.debug(`Swift installed at "${swiftInstallPath}"`);
+        yield setupRequiredTools(swiftPkg);
     });
 }
 exports.install = install;
@@ -2417,15 +2420,23 @@ function setupRequiredTools(pkg) {
                 vsInstallPath = installationPath;
             },
         };
-        // execute the find putting the result of the command in the options foundToolPath
+        // execute the find putting the result of the command in the options vsInstallPath
         yield exec_1.exec(`"${vswhere}" ${vsWhereExec}`, [], options);
+        if (!vsInstallPath) {
+            core.setFailed(`Unable to find any visual studio installation for version range: ${requirement.versionRange}.`);
+            return;
+        }
         const vsInstallerExec = `modify  --installPath "${vsInstallPath}" ` +
             requirement.components.reduce((previous, current, currentIndex, array) => {
                 return `${previous} --add "${current}"`;
             }) +
             ` --quiet`;
         // execute the find putting the result of the command in the options foundToolPath
-        yield exec_1.exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
+        const code = yield exec_1.exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
+        if (code != 0) {
+            core.setFailed(`Visual Studio installer failed to install required components with exit code: ${code}.`);
+            return;
+        }
     });
 }
 

@@ -15,12 +15,12 @@ export async function install(version: string, system: System) {
     return;
   }
 
+  const swiftPkg = swiftPackage(version, system);
   let swiftPath = toolCache.find(`swift-${system.name}`, version);
 
   if (swiftPath === null || swiftPath.trim().length == 0) {
     core.debug(`No cached installer found`);
 
-    const swiftPkg = swiftPackage(version, system);
     let { exe, signature } = await download(swiftPkg);
 
     const exePath = await toolCache.cacheFile(
@@ -48,13 +48,7 @@ export async function install(version: string, system: System) {
     },
   };
   let code = await exec(`"${swiftPath}" -q`, []);
-  let result = fs.existsSync(
-    "C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin"
-  );
   const systemDrive = process.env.SystemDrive ?? "C:";
-  core.info(
-    `exit code ${code} and result ${result} and sysdrive: ${systemDrive}`
-  );
   const swiftInstallPath = path.join(
     systemDrive,
     "Library",
@@ -63,9 +57,16 @@ export async function install(version: string, system: System) {
     "unknown-Asserts-development.xctoolchain",
     "usr\\bin"
   );
-  core.addPath(swiftInstallPath);
 
+  if (code != 0 || !fs.existsSync(swiftInstallPath)) {
+    core.setFailed(`Swift installer failed with exit code: ${code}`);
+    return;
+  }
+
+  core.addPath(swiftInstallPath);
   core.debug(`Swift installed at "${swiftInstallPath}"`);
+
+  await setupRequiredTools(swiftPkg);
 }
 
 async function download({ url, name }: Package) {
@@ -158,8 +159,14 @@ async function setupRequiredTools(pkg: Package) {
     },
   };
 
-  // execute the find putting the result of the command in the options foundToolPath
+  // execute the find putting the result of the command in the options vsInstallPath
   await exec(`"${vswhere}" ${vsWhereExec}`, [], options);
+  if (!vsInstallPath) {
+    core.setFailed(
+      `Unable to find any visual studio installation for version range: ${requirement.versionRange}.`
+    );
+    return;
+  }
 
   const vsInstallerExec =
     `modify  --installPath "${vsInstallPath}" ` +
@@ -169,5 +176,11 @@ async function setupRequiredTools(pkg: Package) {
     ` --quiet`;
 
   // execute the find putting the result of the command in the options foundToolPath
-  await exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
+  const code = await exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
+  if (code != 0) {
+    core.setFailed(
+      `Visual Studio installer failed to install required components with exit code: ${code}.`
+    );
+    return;
+  }
 }
