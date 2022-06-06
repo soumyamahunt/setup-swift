@@ -81,14 +81,15 @@ async function download({ url, name }: Package) {
   return { exe, signature, name };
 }
 
-export interface VisualStudio {
+export interface VsTools {
   vswhere: string;
   vsinstaller: string;
 }
 
-async function getVsWherePath(): Promise<VisualStudio> | never {
+async function getVsToolsPath(): Promise<VsTools> | never {
   // check to see if we are using a specific path for vswhere
   let vswhereToolExe = "";
+  // Env variable for self-hosted runner to provide custom path
   const VSWHERE_PATH = process.env.VSWHERE_PATH;
 
   if (VSWHERE_PATH) {
@@ -110,11 +111,31 @@ async function getVsWherePath(): Promise<VisualStudio> | never {
       core.debug(`Trying Visual Studio-installed path: ${vswhereToolExe}`);
     }
   }
+  // check to see if we are using a specific path for vs_installer
+  let vsinstallerToolExe = "";
+  // Env variable for self-hosted runner to provide custom path
+  const VSINSTALLER_PATH = process.env.VSINSTALLER_PATH;
 
-  let vsinstallerToolExe = path.join(
-    path.dirname(vswhereToolExe),
-    "vs_installer.exe"
-  );
+  if (VSINSTALLER_PATH) {
+    // specified a path for vs_installer, use it
+    core.debug(`Using given vs-installer-path: ${VSINSTALLER_PATH}`);
+    vsinstallerToolExe = path.join(VSINSTALLER_PATH, "vs_installer.exe");
+  } else {
+    // check in PATH to see if it is there
+    try {
+      const vsInstallerInPath: string = await io.which("vs_installer", true);
+      core.debug(`Found tool in PATH: ${vsInstallerInPath}`);
+      vsinstallerToolExe = vsInstallerInPath;
+    } catch {
+      // fall back to VS-installed path
+      vsinstallerToolExe = path.join(
+        process.env["ProgramFiles(x86)"] as string,
+        "Microsoft Visual Studio\\Installer\\vs_installer.exe"
+      );
+      core.debug(`Trying Visual Studio-installed path: ${vsinstallerToolExe}`);
+    }
+  }
+
   if (!fs.existsSync(vswhereToolExe) || !fs.existsSync(vsinstallerToolExe)) {
     core.setFailed(
       "Action requires the path to where vswhere.exe and vs_installer.exe exists"
@@ -142,7 +163,7 @@ function vsRequirement({ version }: Package): VsRequirement {
 }
 
 async function setupRequiredTools(pkg: Package) {
-  const { vswhere, vsinstaller } = await getVsWherePath();
+  const { vswhere, vsinstaller } = await getVsToolsPath();
   const requirement = vsRequirement(pkg);
   const vsWhereExec =
     `-products * ` +

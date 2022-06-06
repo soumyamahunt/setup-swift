@@ -2364,10 +2364,11 @@ function download({ url, name }) {
         return { exe, signature, name };
     });
 }
-function getVsWherePath() {
+function getVsToolsPath() {
     return __awaiter(this, void 0, void 0, function* () {
         // check to see if we are using a specific path for vswhere
         let vswhereToolExe = "";
+        // Env variable for self-hosted runner to provide custom path
         const VSWHERE_PATH = process.env.VSWHERE_PATH;
         if (VSWHERE_PATH) {
             // specified a path for vswhere, use it
@@ -2387,7 +2388,28 @@ function getVsWherePath() {
                 core.debug(`Trying Visual Studio-installed path: ${vswhereToolExe}`);
             }
         }
-        let vsinstallerToolExe = path.join(path.dirname(vswhereToolExe), "vs_installer.exe");
+        // check to see if we are using a specific path for vs_installer
+        let vsinstallerToolExe = "";
+        // Env variable for self-hosted runner to provide custom path
+        const VSINSTALLER_PATH = process.env.VSINSTALLER_PATH;
+        if (VSINSTALLER_PATH) {
+            // specified a path for vs_installer, use it
+            core.debug(`Using given vs-installer-path: ${VSINSTALLER_PATH}`);
+            vsinstallerToolExe = path.join(VSINSTALLER_PATH, "vs_installer.exe");
+        }
+        else {
+            // check in PATH to see if it is there
+            try {
+                const vsInstallerInPath = yield io.which("vs_installer", true);
+                core.debug(`Found tool in PATH: ${vsInstallerInPath}`);
+                vsinstallerToolExe = vsInstallerInPath;
+            }
+            catch (_b) {
+                // fall back to VS-installed path
+                vsinstallerToolExe = path.join(process.env["ProgramFiles(x86)"], "Microsoft Visual Studio\\Installer\\vs_installer.exe");
+                core.debug(`Trying Visual Studio-installed path: ${vsinstallerToolExe}`);
+            }
+        }
         if (!fs.existsSync(vswhereToolExe) || !fs.existsSync(vsinstallerToolExe)) {
             core.setFailed("Action requires the path to where vswhere.exe and vs_installer.exe exists");
             throw new Error();
@@ -2406,7 +2428,7 @@ function vsRequirement({ version }) {
 }
 function setupRequiredTools(pkg) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { vswhere, vsinstaller } = yield getVsWherePath();
+        const { vswhere, vsinstaller } = yield getVsToolsPath();
         const requirement = vsRequirement(pkg);
         const vsWhereExec = `-products * ` +
             `-property installationPath ` +
