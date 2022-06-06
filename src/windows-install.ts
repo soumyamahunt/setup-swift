@@ -171,12 +171,15 @@ async function setupRequiredTools(pkg: Package) {
     `-latest -version "${requirement.versionRange}"`;
 
   let vsInstallPath = "";
-  const options: ExecOptions = {};
+  const options: ExecOptions = { windowsVerbatimArguments: true };
   options.listeners = {
     stdout: (data: Buffer) => {
       const installationPath = data.toString().trim();
       core.debug(`Found installation path: ${installationPath}`);
       vsInstallPath = installationPath;
+    },
+    stderr: (data: Buffer) => {
+      core.error(data.toString());
     },
   };
 

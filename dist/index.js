@@ -2434,12 +2434,15 @@ function setupRequiredTools(pkg) {
             `-property installationPath ` +
             `-latest -version "${requirement.versionRange}"`;
         let vsInstallPath = "";
-        const options = {};
+        const options = { windowsVerbatimArguments: true };
         options.listeners = {
             stdout: (data) => {
                 const installationPath = data.toString().trim();
                 core.debug(`Found installation path: ${installationPath}`);
                 vsInstallPath = installationPath;
+            },
+            stderr: (data) => {
+                core.error(data.toString());
             },
         };
         // execute the find putting the result of the command in the options vsInstallPath
