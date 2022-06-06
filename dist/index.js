@@ -2311,6 +2311,7 @@ const io = __importStar(__webpack_require__(1));
 const path = __importStar(__webpack_require__(622));
 const exec_1 = __webpack_require__(986);
 const swift_versions_1 = __webpack_require__(336);
+const gpg_1 = __webpack_require__(525);
 function install(version, system) {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
@@ -2322,10 +2323,11 @@ function install(version, system) {
         let swiftPath = toolCache.find(`swift-${system.name}`, version);
         if (swiftPath === null || swiftPath.trim().length == 0) {
             core.debug(`No cached installer found`);
+            yield gpg_1.setupKeys();
             let { exe, signature } = yield download(swiftPkg);
+            yield gpg_1.verify(signature, exe);
             const exePath = yield toolCache.cacheFile(exe, swiftPkg.name, `swift-${system.name}`, version);
             swiftPath = path.join(exePath, swiftPkg.name);
-            //await verify(signature, pkg);
         }
         else {
             core.debug("Cached installer found");
@@ -2342,12 +2344,18 @@ function install(version, system) {
         };
         let code = yield exec_1.exec(`"${swiftPath}" -q`, []);
         const systemDrive = (_a = process.env.SystemDrive) !== null && _a !== void 0 ? _a : "C:";
-        const swiftInstallPath = path.join(systemDrive, "Library", "Developer", "Toolchains", "unknown-Asserts-development.xctoolchain", "usr\\bin");
+        const swiftLibPath = path.join(systemDrive, "Library");
+        const swiftInstallPath = path.join(swiftLibPath, "Developer", "Toolchains", "unknown-Asserts-development.xctoolchain", "usr\\bin");
         if (code != 0 || !fs.existsSync(swiftInstallPath)) {
             core.setFailed(`Swift installer failed with exit code: ${code}`);
             return;
         }
         core.addPath(swiftInstallPath);
+        const additionalPaths = [
+            path.join(swiftLibPath, "Swift-development\\bin"),
+            path.join(swiftLibPath, "icu-67\\usr\\bin"),
+        ];
+        additionalPaths.forEach((value, index, array) => core.addPath(value));
         core.debug(`Swift installed at "${swiftInstallPath}"`);
         yield setupRequiredTools(swiftPkg);
     });
@@ -2364,6 +2372,7 @@ function download({ url, name }) {
         return { exe, signature, name };
     });
 }
+/// get vswhere and vs_installer paths
 function getVsToolsPath() {
     return __awaiter(this, void 0, void 0, function* () {
         // check to see if we are using a specific path for vswhere
@@ -2417,6 +2426,8 @@ function getVsToolsPath() {
         return { vswhere: vswhereToolExe, vsinstaller: vsinstallerToolExe };
     });
 }
+/// Setup different version and component requirement
+/// based on swift versions if required
 function vsRequirement({ version }) {
     return {
         version: "16",
@@ -2426,6 +2437,7 @@ function vsRequirement({ version }) {
         ],
     };
 }
+/// set up required tools for swift on windows
 function setupRequiredTools(pkg) {
     return __awaiter(this, void 0, void 0, function* () {
         const { vswhere, vsinstaller } = yield getVsToolsPath();
@@ -2456,7 +2468,7 @@ function setupRequiredTools(pkg) {
                 return `${previous} --add "${current}"`;
             }) +
             ` --quiet`;
-        // execute the find putting the result of the command in the options foundToolPath
+        // install required visual studio components
         const code = yield exec_1.exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
         if (code != 0) {
             core.setFailed(`Visual Studio installer failed to install required components with exit code: ${code}.`);

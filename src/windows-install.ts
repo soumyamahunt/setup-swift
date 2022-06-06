@@ -7,7 +7,7 @@ import * as path from "path";
 import { ExecOptions, exec } from "@actions/exec";
 import { System } from "./os";
 import { swiftPackage, Package } from "./swift-versions";
-import { stderr } from "process";
+import { setupKeys, verify } from "./gpg";
 
 export async function install(version: string, system: System) {
   if (os.platform() !== "win32") {
@@ -21,7 +21,10 @@ export async function install(version: string, system: System) {
   if (swiftPath === null || swiftPath.trim().length == 0) {
     core.debug(`No cached installer found`);
 
+    await setupKeys();
+
     let { exe, signature } = await download(swiftPkg);
+    await verify(signature, exe);
 
     const exePath = await toolCache.cacheFile(
       exe,
@@ -31,7 +34,6 @@ export async function install(version: string, system: System) {
     );
 
     swiftPath = path.join(exePath, swiftPkg.name);
-    //await verify(signature, pkg);
   } else {
     core.debug("Cached installer found");
   }
@@ -49,9 +51,9 @@ export async function install(version: string, system: System) {
   };
   let code = await exec(`"${swiftPath}" -q`, []);
   const systemDrive = process.env.SystemDrive ?? "C:";
+  const swiftLibPath = path.join(systemDrive, "Library");
   const swiftInstallPath = path.join(
-    systemDrive,
-    "Library",
+    swiftLibPath,
     "Developer",
     "Toolchains",
     "unknown-Asserts-development.xctoolchain",
@@ -64,8 +66,14 @@ export async function install(version: string, system: System) {
   }
 
   core.addPath(swiftInstallPath);
-  core.debug(`Swift installed at "${swiftInstallPath}"`);
 
+  const additionalPaths = [
+    path.join(swiftLibPath, "Swift-development\\bin"),
+    path.join(swiftLibPath, "icu-67\\usr\\bin"),
+  ];
+  additionalPaths.forEach((value, index, array) => core.addPath(value));
+
+  core.debug(`Swift installed at "${swiftInstallPath}"`);
   await setupRequiredTools(swiftPkg);
 }
 
@@ -86,6 +94,7 @@ export interface VsTools {
   vsinstaller: string;
 }
 
+/// get vswhere and vs_installer paths
 async function getVsToolsPath(): Promise<VsTools> | never {
   // check to see if we are using a specific path for vswhere
   let vswhereToolExe = "";
@@ -152,6 +161,8 @@ export interface VsRequirement {
   components: string[];
 }
 
+/// Setup different version and component requirement
+/// based on swift versions if required
 function vsRequirement({ version }: Package): VsRequirement {
   return {
     version: "16",
@@ -162,6 +173,7 @@ function vsRequirement({ version }: Package): VsRequirement {
   };
 }
 
+/// set up required tools for swift on windows
 async function setupRequiredTools(pkg: Package) {
   const { vswhere, vsinstaller } = await getVsToolsPath();
   const requirement = vsRequirement(pkg);
@@ -199,7 +211,7 @@ async function setupRequiredTools(pkg: Package) {
     }) +
     ` --quiet`;
 
-  // execute the find putting the result of the command in the options foundToolPath
+  // install required visual studio components
   const code = await exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
   if (code != 0) {
     core.setFailed(
