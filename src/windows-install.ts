@@ -4,6 +4,7 @@ import * as core from "@actions/core";
 import * as toolCache from "@actions/tool-cache";
 import * as io from "@actions/io";
 import * as path from "path";
+import * as semver from "semver";
 import { ExecOptions, exec } from "@actions/exec";
 import { System } from "./os";
 import { swiftPackage, Package } from "./swift-versions";
@@ -173,6 +174,26 @@ function vsRequirement({ version }: Package): VsRequirement {
   };
 }
 
+/// Do swift version based additional support files setup
+async function setupSupportFiles({ version }: Package, vsInstallPath: string) {
+  if (semver.lt(version, "5.4.2")) {
+    const nativeToolsScriptx86 = path.join(
+      vsInstallPath,
+      "VC\\Auxiliary\\Build\\vcvars32.bat"
+    );
+    const copyCommands = [
+      'copy /Y %SDKROOT%\\usr\\share\\ucrt.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\ucrt\\module.modulemap"',
+      'copy /Y %SDKROOT%\\usr\\share\\visualc.modulemap "%VCToolsInstallDir%\\include\\module.modulemap"',
+      'copy /Y %SDKROOT%\\usr\\share\\visualc.apinotes "%VCToolsInstallDir%\\include\\visualc.apinotes"',
+      'copy /Y %SDKROOT%\\usr\\share\\winsdk.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\um\\module.modulemap"',
+    ].join("&&");
+    let code = await exec("cmd /c", [
+      `call "${nativeToolsScriptx86}"&&${copyCommands}`,
+    ]);
+    core.info(`Ran command for swift and exited with code: ${code}`);
+  }
+}
+
 /// set up required tools for swift on windows
 async function setupRequiredTools(pkg: Package) {
   const { vswhere, vsinstaller } = await getVsToolsPath();
@@ -219,4 +240,6 @@ async function setupRequiredTools(pkg: Package) {
     );
     return;
   }
+
+  await setupSupportFiles(pkg, vsInstallPath);
 }

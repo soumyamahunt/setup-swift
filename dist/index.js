@@ -2309,6 +2309,7 @@ const core = __importStar(__webpack_require__(470));
 const toolCache = __importStar(__webpack_require__(533));
 const io = __importStar(__webpack_require__(1));
 const path = __importStar(__webpack_require__(622));
+const semver = __importStar(__webpack_require__(876));
 const exec_1 = __webpack_require__(986);
 const swift_versions_1 = __webpack_require__(336);
 const gpg_1 = __webpack_require__(525);
@@ -2437,6 +2438,24 @@ function vsRequirement({ version }) {
         ],
     };
 }
+/// Do swift version based additional support files setup
+function setupSupportFiles({ version }, vsInstallPath) {
+    return __awaiter(this, void 0, void 0, function* () {
+        if (semver.lt(version, "5.4.2")) {
+            const nativeToolsScriptx86 = path.join(vsInstallPath, "VC\\Auxiliary\\Build\\vcvars32.bat");
+            const copyCommands = [
+                'copy /Y %SDKROOT%\\usr\\share\\ucrt.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\ucrt\\module.modulemap"',
+                'copy /Y %SDKROOT%\\usr\\share\\visualc.modulemap "%VCToolsInstallDir%\\include\\module.modulemap"',
+                'copy /Y %SDKROOT%\\usr\\share\\visualc.apinotes "%VCToolsInstallDir%\\include\\visualc.apinotes"',
+                'copy /Y %SDKROOT%\\usr\\share\\winsdk.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\um\\module.modulemap"',
+            ].join("&&");
+            let code = yield exec_1.exec("cmd /c", [
+                `call "${nativeToolsScriptx86}"&&${copyCommands}`,
+            ]);
+            core.info(`Ran command for swift and exited with code: ${code}`);
+        }
+    });
+}
 /// set up required tools for swift on windows
 function setupRequiredTools(pkg) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -2474,6 +2493,7 @@ function setupRequiredTools(pkg) {
             core.setFailed(`Visual Studio installer failed to install required components with exit code: ${code}.`);
             return;
         }
+        yield setupSupportFiles(pkg, vsInstallPath);
     });
 }
 
