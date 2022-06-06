@@ -148,13 +148,13 @@ async function getVsToolsPath(): Promise<VsTools> | never {
 }
 
 export interface VsRequirement {
-  versionRange: string;
+  version: string;
   components: string[];
 }
 
 function vsRequirement({ version }: Package): VsRequirement {
   return {
-    versionRange: "[16,17)",
+    version: "16",
     components: [
       "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
       "Microsoft.VisualStudio.Component.Windows10SDK.17763",
@@ -168,10 +168,10 @@ async function setupRequiredTools(pkg: Package) {
   const vsWhereExec =
     `-products * ` +
     `-property installationPath ` +
-    `-latest -version "${requirement.versionRange}"`;
+    `-latest -version "${requirement.version}"`;
 
   let vsInstallPath = "";
-  const options: ExecOptions = { windowsVerbatimArguments: true };
+  const options: ExecOptions = {};
   options.listeners = {
     stdout: (data: Buffer) => {
       const installationPath = data.toString().trim();
@@ -184,10 +184,10 @@ async function setupRequiredTools(pkg: Package) {
   };
 
   // execute the find putting the result of the command in the options vsInstallPath
-  await exec(`"${vswhere}"`, [vsWhereExec], options);
+  await exec(`"${vswhere}" ${vsWhereExec}`, [], options);
   if (!vsInstallPath) {
     core.setFailed(
-      `Unable to find any visual studio installation for version range: ${requirement.versionRange}.`
+      `Unable to find any visual studio installation for version: ${requirement.version}.`
     );
     return;
   }

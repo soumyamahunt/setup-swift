@@ -2419,7 +2419,7 @@ function getVsToolsPath() {
 }
 function vsRequirement({ version }) {
     return {
-        versionRange: "[16,17)",
+        version: "16",
         components: [
             "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
             "Microsoft.VisualStudio.Component.Windows10SDK.17763",
@@ -2432,9 +2432,9 @@ function setupRequiredTools(pkg) {
         const requirement = vsRequirement(pkg);
         const vsWhereExec = `-products * ` +
             `-property installationPath ` +
-            `-latest -version "${requirement.versionRange}"`;
+            `-latest -version "${requirement.version}"`;
         let vsInstallPath = "";
-        const options = { windowsVerbatimArguments: true };
+        const options = {};
         options.listeners = {
             stdout: (data) => {
                 const installationPath = data.toString().trim();
@@ -2446,9 +2446,9 @@ function setupRequiredTools(pkg) {
             },
         };
         // execute the find putting the result of the command in the options vsInstallPath
-        yield exec_1.exec(`"${vswhere}"`, [vsWhereExec], options);
+        yield exec_1.exec(`"${vswhere}" ${vsWhereExec}`, [], options);
         if (!vsInstallPath) {
-            core.setFailed(`Unable to find any visual studio installation for version range: ${requirement.versionRange}.`);
+            core.setFailed(`Unable to find any visual studio installation for version: ${requirement.version}.`);
             return;
         }
         const vsInstallerExec = `modify  --installPath "${vsInstallPath}" ` +
