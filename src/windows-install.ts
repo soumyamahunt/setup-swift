@@ -187,9 +187,11 @@ async function setupSupportFiles({ version }: Package, vsInstallPath: string) {
       'copy /Y %SDKROOT%\\usr\\share\\visualc.apinotes "%VCToolsInstallDir%\\include\\visualc.apinotes"',
       'copy /Y %SDKROOT%\\usr\\share\\winsdk.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\um\\module.modulemap"',
     ].join("&&");
-    let code = await exec("cmd /c", [
-      `call "${nativeToolsScriptx86}"&&${copyCommands}`,
-    ]);
+    let code = await exec(
+      "cmd /c",
+      [`call "${nativeToolsScriptx86}"&&${copyCommands}`],
+      { windowsVerbatimArguments: true }
+    );
     core.info(`Ran command for swift and exited with code: ${code}`);
   }
 }
