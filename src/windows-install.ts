@@ -48,7 +48,10 @@ export async function install(version: string, system: System) {
     },
   };
   let code = await exec(`"${swiftPath}" -q`, []);
-  core.info(`exit code ${code}`);
+  let result = fs.existsSync(
+    "C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin"
+  );
+  core.info(`exit code ${code} and result ${result}`);
   core.addPath(
     "%SystemDrive%\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin"
   );
