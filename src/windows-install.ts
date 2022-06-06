@@ -187,7 +187,7 @@ async function setupRequiredTools(pkg: Package) {
   const options: ExecOptions = {};
   options.listeners = {
     stdout: (data: Buffer) => {
-      payload.concat(data.toString("utf-8"));
+      payload = payload.concat(data.toString("utf-8"));
     },
     stderr: (data: Buffer) => {
       core.error(data.toString());

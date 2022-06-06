@@ -2444,7 +2444,7 @@ function setupRequiredTools(pkg) {
         const options = {};
         options.listeners = {
             stdout: (data) => {
-                payload.concat(data.toString("utf-8"));
+                payload = payload.concat(data.toString("utf-8"));
             },
             stderr: (data) => {
                 core.error(data.toString());
