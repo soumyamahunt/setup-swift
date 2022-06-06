@@ -196,7 +196,7 @@ async function setupRequiredTools(pkg: Package) {
 
   // execute the find putting the result of the command in the options vsInstallPath
   await exec(`"${vswhereExe}" ${vsWhereExec}`, [], options);
-  core.info(payload);
+  core.info(`got payload: ${payload}`);
   let vs: VisualStudio = JSON.parse(payload).first;
   if (!vs.installationPath) {
     core.setFailed(
