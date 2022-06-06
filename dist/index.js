@@ -2341,8 +2341,9 @@ function install(version, system) {
         };
         let code = yield exec_1.exec(`"${swiftPath}" -q`, []);
         let result = fs.existsSync("C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin");
-        core.info(`exit code ${code} and result ${result}`);
-        core.addPath("%SystemDrive%\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin");
+        const systemDrive = process.env.SystemDrive;
+        core.info(`exit code ${code} and result ${result} and sysdrive: ${systemDrive}`);
+        core.addPath("C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin");
         core.debug("Swift installed");
     });
 }
