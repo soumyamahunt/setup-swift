@@ -2312,6 +2312,7 @@ const path = __importStar(__webpack_require__(622));
 const exec_1 = __webpack_require__(986);
 const swift_versions_1 = __webpack_require__(336);
 function install(version, system) {
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         if (os.platform() !== "win32") {
             core.error("Trying to run windows installer on non-windows os");
@@ -2341,10 +2342,11 @@ function install(version, system) {
         };
         let code = yield exec_1.exec(`"${swiftPath}" -q`, []);
         let result = fs.existsSync("C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin");
-        const systemDrive = process.env.SystemDrive;
+        const systemDrive = (_a = process.env.SystemDrive) !== null && _a !== void 0 ? _a : "C:";
         core.info(`exit code ${code} and result ${result} and sysdrive: ${systemDrive}`);
-        core.addPath("C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin");
-        core.debug("Swift installed");
+        const swiftInstallPath = path.join(systemDrive, "Library", "Developer", "Toolchains", "unknown-Asserts-development.xctoolchain", "usr\\bin");
+        core.addPath(swiftInstallPath);
+        core.debug(`Swift installed at "${swiftInstallPath}"`);
     });
 }
 exports.install = install;

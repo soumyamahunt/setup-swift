@@ -51,15 +51,21 @@ export async function install(version: string, system: System) {
   let result = fs.existsSync(
     "C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin"
   );
-  const systemDrive = process.env.SystemDrive;
+  const systemDrive = process.env.SystemDrive ?? "C:";
   core.info(
     `exit code ${code} and result ${result} and sysdrive: ${systemDrive}`
   );
-  core.addPath(
-    "C:\\Library\\Developer\\Toolchains\\unknown-Asserts-development.xctoolchain\\usr\\bin"
+  const swiftInstallPath = path.join(
+    systemDrive,
+    "Library",
+    "Developer",
+    "Toolchains",
+    "unknown-Asserts-development.xctoolchain",
+    "usr\\bin"
   );
+  core.addPath(swiftInstallPath);
 
-  core.debug("Swift installed");
+  core.debug(`Swift installed at "${swiftInstallPath}"`);
 }
 
 async function download({ url, name }: Package) {
