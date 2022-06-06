@@ -2398,33 +2398,11 @@ function getVsToolsPath() {
                 core.debug(`Trying Visual Studio-installed path: ${vswhereToolExe}`);
             }
         }
-        // check to see if we are using a specific path for vs_installer
-        let vsinstallerToolExe = "";
-        // Env variable for self-hosted runner to provide custom path
-        const VSINSTALLER_PATH = process.env.VSINSTALLER_PATH;
-        if (VSINSTALLER_PATH) {
-            // specified a path for vs_installer, use it
-            core.debug(`Using given vs-installer-path: ${VSINSTALLER_PATH}`);
-            vsinstallerToolExe = path.join(VSINSTALLER_PATH, "vs_installer.exe");
-        }
-        else {
-            // check in PATH to see if it is there
-            try {
-                const vsInstallerInPath = yield io.which("vs_installer", true);
-                core.debug(`Found tool in PATH: ${vsInstallerInPath}`);
-                vsinstallerToolExe = vsInstallerInPath;
-            }
-            catch (_b) {
-                // fall back to VS-installed path
-                vsinstallerToolExe = path.join(process.env["ProgramFiles(x86)"], "Microsoft Visual Studio\\Installer\\vs_installer.exe");
-                core.debug(`Trying Visual Studio-installed path: ${vsinstallerToolExe}`);
-            }
-        }
-        if (!fs.existsSync(vswhereToolExe) || !fs.existsSync(vsinstallerToolExe)) {
-            core.setFailed("Action requires the path to where vswhere.exe and vs_installer.exe exists");
+        if (!fs.existsSync(vswhereToolExe)) {
+            core.setFailed("Action requires the path to where vswhere.exe exists");
             throw new Error();
         }
-        return { vswhere: vswhereToolExe, vsinstaller: vsinstallerToolExe };
+        return vswhereToolExe;
     });
 }
 /// Setup different version and component requirement
@@ -2449,7 +2427,7 @@ function setupSupportFiles({ version }, vsInstallPath) {
                 'copy /Y %SDKROOT%\\usr\\share\\visualc.apinotes "%VCToolsInstallDir%\\include\\visualc.apinotes"',
                 'copy /Y %SDKROOT%\\usr\\share\\winsdk.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\um\\module.modulemap"',
             ].join("&&");
-            let code = yield exec_1.exec("cmd /c", [`call "${nativeToolsScriptx86}"&&${copyCommands}`], { windowsVerbatimArguments: true });
+            let code = yield exec_1.exec("cmd /c", [`""${nativeToolsScriptx86}"&&${copyCommands}"`], { windowsVerbatimArguments: true });
             core.info(`Ran command for swift and exited with code: ${code}`);
         }
     });
@@ -2457,41 +2435,40 @@ function setupSupportFiles({ version }, vsInstallPath) {
 /// set up required tools for swift on windows
 function setupRequiredTools(pkg) {
     return __awaiter(this, void 0, void 0, function* () {
-        const { vswhere, vsinstaller } = yield getVsToolsPath();
+        const vswhereExe = yield getVsToolsPath();
         const requirement = vsRequirement(pkg);
         const vsWhereExec = `-products * ` +
-            `-property installationPath ` +
+            `-format json -utf8 ` +
             `-latest -version "${requirement.version}"`;
-        let vsInstallPath = "";
+        let payload = "";
         const options = {};
         options.listeners = {
             stdout: (data) => {
-                const installationPath = data.toString().trim();
-                core.debug(`Found installation path: ${installationPath}`);
-                vsInstallPath = installationPath;
+                payload.concat(data.toString("utf-8"));
             },
             stderr: (data) => {
                 core.error(data.toString());
             },
         };
         // execute the find putting the result of the command in the options vsInstallPath
-        yield exec_1.exec(`"${vswhere}" ${vsWhereExec}`, [], options);
-        if (!vsInstallPath) {
+        yield exec_1.exec(`"${vswhereExe}" ${vsWhereExec}`, [], options);
+        let vs = JSON.parse(payload).first;
+        if (!vs.installationPath) {
             core.setFailed(`Unable to find any visual studio installation for version: ${requirement.version}.`);
             return;
         }
-        const vsInstallerExec = `modify  --installPath "${vsInstallPath}" ` +
+        const vsInstallerExec = `modify  --installPath "${vs.installationPath}" ` +
             requirement.components.reduce((previous, current, currentIndex, array) => {
                 return `${previous} --add "${current}"`;
             }) +
             ` --quiet`;
         // install required visual studio components
-        const code = yield exec_1.exec(`"${vsinstaller}" ${vsInstallerExec}`, []);
+        const code = yield exec_1.exec(`"${vs.properties.setupEngineFilePath}" ${vsInstallerExec}`, []);
         if (code != 0) {
             core.setFailed(`Visual Studio installer failed to install required components with exit code: ${code}.`);
             return;
         }
-        yield setupSupportFiles(pkg, vsInstallPath);
+        yield setupSupportFiles(pkg, vs.installationPath);
     });
 }
 
