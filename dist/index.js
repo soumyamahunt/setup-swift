@@ -2807,7 +2807,7 @@ function run() {
                 core.setOutput("version", version);
             }
             else {
-                core.error("Failed to setup requested swift version");
+                core.error(`Failed to setup requested swift version. requestd: ${version}, actual: ${current}`);
             }
         }
         catch (error) {
@@ -2818,7 +2818,7 @@ function run() {
             else {
                 dump = `${error}`;
             }
-            core.setFailed(`Unexpected error, unable to continue. Please report at https://github.com/fwal/setup-swift/issues${os_1.EOL}${dump}`);
+            core.setFailed(`Unexpected error, unable to continue. Please report at https://github.com/swift-actions/setup-swift/issues${os_1.EOL}${dump}`);
         }
     });
 }
@@ -7809,9 +7809,15 @@ var OS;
     OS[OS["Ubuntu"] = 1] = "Ubuntu";
     OS[OS["Windows"] = 2] = "Windows";
 })(OS = exports.OS || (exports.OS = {}));
+(function (OS) {
+    function all() {
+        return [OS.MacOS, OS.Ubuntu, OS.Windows];
+    }
+    OS.all = all;
+})(OS = exports.OS || (exports.OS = {}));
 const AVAILABLE_OS = {
-    macOS: ["latest"],
-    Ubuntu: ["18.04", "16.04"],
+    macOS: ["latest", "11.0", "10.15"],
+    Ubuntu: ["latest", "20.04", "18.04", "16.04"],
     Windows: ["latest"],
 };
 function getSystem() {
@@ -8005,7 +8011,20 @@ const semver = __importStar(__webpack_require__(876));
 const core = __importStar(__webpack_require__(470));
 const os_1 = __webpack_require__(316);
 const VERSIONS_LIST = [
-    ["5.3", [os_1.OS.MacOS, os_1.OS.Ubuntu, os_1.OS.Windows]],
+    ["5.6.1", os_1.OS.all()],
+    ["5.6", os_1.OS.all()],
+    ["5.5.3", os_1.OS.all()],
+    ["5.5.2", os_1.OS.all()],
+    ["5.5.1", os_1.OS.all()],
+    ["5.5", os_1.OS.all()],
+    ["5.4.3", os_1.OS.all()],
+    ["5.4.2", os_1.OS.all()],
+    ["5.4.1", os_1.OS.all()],
+    ["5.4", os_1.OS.all()],
+    ["5.3.3", os_1.OS.all()],
+    ["5.3.2", os_1.OS.all()],
+    ["5.3.1", os_1.OS.all()],
+    ["5.3", os_1.OS.all()],
     ["5.2.5", [os_1.OS.Ubuntu]],
     ["5.2.4", [os_1.OS.MacOS, os_1.OS.Ubuntu]],
     ["5.2.3", [os_1.OS.Ubuntu]],
@@ -8833,17 +8852,17 @@ function verify(signaturePath, packagePath) {
 exports.verify = verify;
 function refreshKeys() {
     return __awaiter(this, void 0, void 0, function* () {
-        const pool = [
-            "hkp://pool.sks-keyservers.net",
-            "ha.pool.sks-keyservers.net",
-            "keyserver.ubuntu.com",
-            "hkp://keyserver.ubuntu.com",
-            "pgp.mit.edu",
-        ];
+        const pool = ["hkp://keyserver.ubuntu.com"];
         for (const server of pool) {
             core.debug(`Refreshing keys from ${server}`);
+            // 1st try...
             if (yield refreshKeysFromServer(server)) {
-                core.debug(`Refresh successful`);
+                core.debug(`Refresh successful on first attempt`);
+                return;
+            }
+            // 2nd try...
+            if (yield refreshKeysFromServer(server)) {
+                core.debug(`Refresh successful on second attempt`);
                 return;
             }
             core.debug(`Refresh failed`);
@@ -12307,7 +12326,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getVersion = void 0;
+exports.versionFromString = exports.getVersion = void 0;
 const exec_1 = __webpack_require__(986);
 function getVersion(command = "swift", args = ["--version"]) {
     return __awaiter(this, void 0, void 0, function* () {
@@ -12324,19 +12343,23 @@ function getVersion(command = "swift", args = ["--version"]) {
             },
         };
         yield exec_1.exec(command, args, options);
-        if (error) {
-            throw new Error(error);
+        if (!output && error) {
+            throw new Error("Error getting swift version " + error);
         }
-        const match = output.match(/(?<version>[0-9]+\.[0-9+]+(\.[0-9]+)?)/) || {
-            groups: { version: null },
-        };
-        if (!match.groups || !match.groups.version) {
-            return null;
-        }
-        return match.groups.version;
+        return versionFromString(output);
     });
 }
 exports.getVersion = getVersion;
+function versionFromString(subject) {
+    const match = subject.match(/Swift\ version (?<version>[0-9]+\.[0-9+]+(\.[0-9]+)?)/) || {
+        groups: { version: null },
+    };
+    if (!match.groups || !match.groups.version) {
+        return null;
+    }
+    return match.groups.version;
+}
+exports.versionFromString = versionFromString;
 
 
 /***/ }),
