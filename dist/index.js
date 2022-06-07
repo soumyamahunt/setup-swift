@@ -7636,11 +7636,16 @@ const exec_1 = __webpack_require__(986);
 /// Setup different version and component requirement
 /// based on swift versions if required
 function vsRequirement({ version }) {
+    const recVersion = "10.0.17763";
+    const currentVersion = os.release();
+    const useVersion = semver.gte(currentVersion, recVersion)
+        ? currentVersion
+        : recVersion;
     return {
         version: "16",
         components: [
             "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
-            `Microsoft.VisualStudio.Component.Windows10SDK.${semver.patch(os.release())}`,
+            `Microsoft.VisualStudio.Component.Windows10SDK.${semver.patch(useVersion)}`,
         ],
     };
 }
@@ -7648,6 +7653,7 @@ function vsRequirement({ version }) {
 function setupSupportFiles({ version }, vsInstallPath) {
     return __awaiter(this, void 0, void 0, function* () {
         if (semver.lt(version, "5.4.2")) {
+            /// https://docs.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170
             const nativeToolsScriptx86 = path.join(vsInstallPath, "VC\\Auxiliary\\Build\\vcvars32.bat");
             const copyCommands = [
                 'copy /Y %SDKROOT%\\usr\\share\\ucrt.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\ucrt\\module.modulemap"',
@@ -7663,6 +7669,8 @@ function setupSupportFiles({ version }, vsInstallPath) {
 /// set up required visual studio tools for swift on windows
 function setupVsTools(pkg) {
     return __awaiter(this, void 0, void 0, function* () {
+        /// https://github.com/microsoft/vswhere/wiki/Find-MSBuild
+        /// get visual studio properties
         const vswhereExe = yield getVsWherePath();
         const requirement = vsRequirement(pkg);
         const vsWhereExec = `-products * ` +
@@ -7685,6 +7693,8 @@ function setupVsTools(pkg) {
             core.setFailed(`Unable to find any visual studio installation for version: ${requirement.version}.`);
             return;
         }
+        /// https://docs.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022
+        /// install required visual studio components
         const vsInstallerExec = `modify --installPath "${vs.installationPath}"` +
             requirement.components.reduce((previous, current) => `${previous} --add "${current}"`, "") +
             ` --quiet`;
@@ -7698,7 +7708,9 @@ function setupVsTools(pkg) {
     });
 }
 exports.setupVsTools = setupVsTools;
-/// get vswhere and vs_installer paths
+/// Get vswhere and vs_installer paths
+/// Borrowed from setup-msbuild action: https://github.com/microsoft/setup-msbuild
+/// From source file: https://github.com/microsoft/setup-msbuild/blob/master/src/main.ts
 function getVsWherePath() {
     return __awaiter(this, void 0, void 0, function* () {
         // check to see if we are using a specific path for vswhere
@@ -7837,7 +7849,7 @@ var OS;
 const AVAILABLE_OS = {
     macOS: ["latest", "11.0", "10.15"],
     Ubuntu: ["latest", "20.04", "18.04", "16.04"],
-    Windows: ["latest"],
+    Windows: ["latest", "2022", "2019"],
 };
 function getSystem() {
     return __awaiter(this, void 0, void 0, function* () {
