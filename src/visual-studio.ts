@@ -61,8 +61,8 @@ async function setupSupportFiles({ version }: Package, vsInstallPath: string) {
       'copy /Y %SDKROOT%\\usr\\share\\winsdk.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\um\\module.modulemap"',
     ].join("&&");
     let code = await exec(
-      "cmd /c",
-      [`""${nativeToolsScriptx86}"&&${copyCommands}"`],
+      "cmd /k",
+      [`""${nativeToolsScriptx86}"&&${copyCommands}&&exit 0"`],
       { windowsVerbatimArguments: true }
     );
     core.info(`Ran command for swift and exited with code: ${code}`);
