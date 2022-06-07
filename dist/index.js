@@ -7661,7 +7661,10 @@ function setupSupportFiles({ version }, vsInstallPath) {
                 'copy /Y %SDKROOT%\\usr\\share\\visualc.apinotes "%VCToolsInstallDir%\\include\\visualc.apinotes"',
                 'copy /Y %SDKROOT%\\usr\\share\\winsdk.modulemap "%UniversalCRTSdkDir%\\Include\\%UCRTVersion%\\um\\module.modulemap"',
             ].join("&&");
-            let code = yield exec_1.exec("cmd /k", [`""${nativeToolsScriptx86}"&&${copyCommands}&&exit 0"`], { windowsVerbatimArguments: true });
+            let code = yield exec_1.exec("cmd /k", [nativeToolsScriptx86], {
+                failOnStdErr: true,
+                input: Buffer.from(copyCommands, "utf8"),
+            });
             core.info(`Ran command for swift and exited with code: ${code}`);
         }
     });
