@@ -43,3 +43,4 @@ jobs:
         $swift=(get-command swift).Source
         write-output $swift
         ls (get-item $swift).Directory.FullName
+        echo $env:PATH
