@@ -2,11 +2,12 @@ name: Tests
 
 on:
   push:
-    branches:
-    - main
+    # branches:
+    # - main
   pull_request:
     branches:
     - main
+  workflow_dispatch:
 
 jobs:
   unit-test:
@@ -36,3 +37,9 @@ jobs:
         swift-version: ${{ matrix.swift }}
     - name: Swift version
       run: swift --version | grep ${{ matrix.swift }} || exit 1
+    - name: Swift directory check
+      if: runner.os == 'Windows'
+      run: |
+        $swift=(get-command swift).Source
+        write-output $swift
+        ls (get-item $swift).Directory.FullName
