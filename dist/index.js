@@ -906,6 +906,7 @@ function install(version, system) {
             core.debug("Cached installer found");
         }
         core.debug("Running installer");
+        yield (0, exec_1.exec)(`"${swiftPath}" -help`, []);
         const options = {};
         options.listeners = {
             stdout: (data) => {

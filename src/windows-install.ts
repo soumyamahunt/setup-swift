@@ -40,6 +40,7 @@ export async function install(version: string, system: System) {
 
   core.debug("Running installer");
 
+  await exec(`"${swiftPath}" -help`, []);
   const options: ExecOptions = {};
   options.listeners = {
     stdout: (data: Buffer) => {
